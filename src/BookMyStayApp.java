@@ -1,100 +1,103 @@
-import java.util.Scanner;
-import java.util.ArrayList;
+import java.util.*;
 
 /**
- * CLASS - InvalidBookingException
- * Custom exception representing invalid booking scenarios.
+ * CLASS - CancellationService
+ * Handles booking cancellations and inventory rollback using a Stack.
  */
-class InvalidBookingException extends Exception {
-    public InvalidBookingException(String message) {
-        super(message);
+class CancellationService {
+    // Stack stores recently released room IDs (LIFO order)
+    private Stack<String> releasedRoomIds;
+    // Maps reservation ID to room type for lookup during cancellation
+    private Map<String, String> reservationRoomTypeMap;
+
+    /**
+     * Initializes tracking structures.
+     */
+    public CancellationService() {
+        releasedRoomIds = new Stack<>();
+        reservationRoomTypeMap = new HashMap<>();
+    }
+
+    /**
+     * Registers a confirmed booking data for later cancellation.
+     */
+    public void registerBooking(String reservationId, String roomType) {
+        reservationRoomTypeMap.put(reservationId, roomType);
+    }
+
+    /**
+     * Cancels a confirmed booking and restores inventory.
+     */
+    public void cancelBooking(String reservationId, RoomInventory inventory) {
+        if (reservationRoomTypeMap.containsKey(reservationId)) {
+            String roomType = reservationRoomTypeMap.get(reservationId);
+
+            // Logic to restore inventory would be called here
+            inventory.restoreRoom(roomType);
+
+            // Track the released ID in the stack for rollback history
+            releasedRoomIds.push(reservationId);
+
+            System.out.println("Booking cancelled successfully. Inventory restored for room type: " + roomType);
+        } else {
+            System.out.println("Error: Reservation ID not found.");
+        }
+    }
+
+    /**
+     * Displays recently cancelled reservations in rollback order.
+     */
+    public void showRollbackHistory() {
+        System.out.println("\nRollback History (Most Recent First):");
+        if (releasedRoomIds.isEmpty()) {
+            System.out.println("No history available.");
+            return;
+        }
+
+        // Peek at the most recent cancellation
+        System.out.println("Released Reservation ID: " + releasedRoomIds.peek());
     }
 }
 
 /**
  * CLASS - RoomInventory
- * Simple representation of the room inventory system.
+ * Manages the availability counts for room types.
  */
 class RoomInventory {
-    // Inventory management logic would go here
-}
+    private int singleRooms = 5;
 
-/**
- * CLASS - BookingRequestQueue
- * Placeholder for the queue mentioned in the main method.
- */
-class BookingRequestQueue {
-    private ArrayList<String> requests = new ArrayList<>();
-    public void enqueue(String request) { requests.add(request); }
-}
-
-/**
- * CLASS - ReservationValidator
- * Centralized logic for validating booking requests.
- */
-class ReservationValidator {
-    /**
-     * Validates booking input provided by the user.
-     * @param guestName name of the guest
-     * @param roomType requested room type
-     * @param inventory centralized inventory
-     * @throws InvalidBookingException if validation fails
-     */
-    public void validate(String guestName, String roomType, RoomInventory inventory)
-            throws InvalidBookingException {
-
-        // Check for empty name
-        if (guestName == null || guestName.trim().isEmpty()) {
-            throw new InvalidBookingException("Guest name cannot be empty.");
+    public void restoreRoom(String type) {
+        if (type.equals("Single")) {
+            singleRooms++;
         }
+    }
 
-        // Room type validation (Case-Sensitive: Single, Double, Suite)
-        if (!(roomType.equals("Single") || roomType.equals("Double") || roomType.equals("Suite"))) {
-            throw new InvalidBookingException("Invalid room type selected.");
-        }
+    public int getSingleRoomAvailability() {
+        return singleRooms;
     }
 }
 
 /**
- * MAIN CLASS - UseCase9ErrorHandlingValidation
+ * MAIN CLASS - UseCase10BookingCancellation
  */
 public class BookMyStayApp {
 
-    /**
-     * Application entry point.
-     */
     public static void main(String[] args) {
-        // Display application header
-        System.out.println("Booking Validation");
+        System.out.println("Booking Cancellation");
 
-        Scanner scanner = new Scanner(System.in);
-
-        // Initialize required components
+        // Initialize components
         RoomInventory inventory = new RoomInventory();
-        ReservationValidator validator = new ReservationValidator();
-        BookingRequestQueue bookingQueue = new BookingRequestQueue();
+        CancellationService cancellationService = new CancellationService();
 
-        try {
-            // Prompt user for input
-            System.out.print("Enter guest name: ");
-            String guestName = scanner.nextLine();
+        // Simulate a pre-existing booking
+        String resId = "Single-1";
+        cancellationService.registerBooking(resId, "Single");
 
-            System.out.print("Enter room type (Single/Double/Suite): ");
-            String roomType = scanner.nextLine();
+        // Perform cancellation
+        cancellationService.cancelBooking(resId, inventory);
 
-            // Perform centralized validation
-            validator.validate(guestName, roomType, inventory);
-
-            // If validation passes, add to queue
-            bookingQueue.enqueue(guestName + " - " + roomType);
-            System.out.println("Booking validated successfully.");
-
-        } catch (InvalidBookingException e) {
-            // Handle domain-specific validation errors
-            System.out.println("Booking failed: " + e.getMessage());
-        } finally {
-            // Ensure resources are closed
-            scanner.close();
-        }
+        // Show history and updated inventory
+        cancellationService.showRollbackHistory();
+        System.out.println("Updated Single Room Availability: " + inventory.getSingleRoomAvailability());
     }
 }
